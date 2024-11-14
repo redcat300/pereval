@@ -1,24 +1,27 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from database import get_db, Base, engine
-from schemas import RawData
-from crud import create_pass
+from schemas import PerevalCreate, PerevalResponse
+from crud import PerevalDB
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-@app.post("/submitData")
-async def submit_data(pass_data: RawData, db: Session = Depends(get_db)):
+@app.post("/submitData", response_model=PerevalResponse)
+async def submit_data(pass_data: PerevalCreate, db: Session = Depends(get_db)):
     try:
-        new_pass = create_pass(db=db, pass_data=pass_data)
-        return {"status": 200, "message": "null", "id": new_pass.id}
+        pereval_db = PerevalDB(db)
+        new_pass = pereval_db.add_pereval(pereval_data=pass_data)
+        return new_pass
 
     except ValidationError as e:
-        return {"status": 400, "message": "Ошибка валидации данных: недостаточно полей или неверные типы данных", "id": None}
+        raise HTTPException(status_code=400, detail="Ошибка валидации данных")
 
     except SQLAlchemyError as e:
-        return {"status": 500, "message": "Ошибка при выполнении операции: ошибка базы данных", "id": None}
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Ошибка при выполнении операции: ошибка базы данных")
 
     except Exception as e:
-        return {"status": 500, "message": f"Ошибка при выполнении операции: {str(e)}", "id": None}
+        raise HTTPException(status_code=500, detail=f"Ошибка при выполнении операции: {str(e)}")

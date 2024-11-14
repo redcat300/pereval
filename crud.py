@@ -1,44 +1,71 @@
 from sqlalchemy.orm import Session
-from models import Pass, PerevalAdded
-from schemas import RawData, PerevalCreate
+from models import PerevalAdded, User, Coords, Level, Image
+from schemas import PerevalCreate
 
-def create_pass(db: Session, pass_data: RawData):
-    db_pass = Pass(
-        beauty_title=pass_data.beauty_title,
-        title=pass_data.title,
-        other_titles=pass_data.other_titles,
-        connect=pass_data.connect,
-        add_time=pass_data.add_time,
-        latitude=pass_data.coords.latitude,
-        longitude=pass_data.coords.longitude,
-        height=pass_data.coords.height,
-        winter=pass_data.level.winter,
-        summer=pass_data.level.summer,
-        autumn=pass_data.level.autumn,
-        spring=pass_data.level.spring,
-        user_fam=pass_data.user.fam,
-        user_name=pass_data.user.name,
-        user_otc=pass_data.user.otc,
-        user_email=pass_data.user.email,
-        user_phone=pass_data.user.phone
-    )
-    db.add(db_pass)
-    db.commit()
-    db.refresh(db_pass)
-    return db_pass
 
 class PerevalDB:
-    def __init__(self):
+    def __init__(self, db: Session):
         self.db = db
 
     def add_pereval(self, pereval_data: PerevalCreate):
+        user = self.db.query(User).filter(User.email == pereval_data.user.email).first()
+        if not user:
+            user = User(
+                fam=pereval_data.user.fam,
+                name=pereval_data.user.name,
+                otc=pereval_data.user.otc,
+                email=pereval_data.user.email,
+                phone=pereval_data.user.phone
+            )
+            self.db.add(user)
+            self.db.commit()
+            self.db.refresh(user)
+
+        # Создаем координаты
+        coords = Coords(
+            latitude=pereval_data.coords.latitude,
+            longitude=pereval_data.coords.longitude,
+            height=pereval_data.coords.height
+        )
+        self.db.add(coords)
+        self.db.commit()
+        self.db.refresh(coords)
+
+        # Создаем уровень сложности
+        level = Level(
+            winter=pereval_data.level.winter,
+            summer=pereval_data.level.summer,
+            autumn=pereval_data.level.autumn,
+            spring=pereval_data.level.spring
+        )
+        self.db.add(level)
+        self.db.commit()
+        self.db.refresh(level)
+
+        # Создаем запись о перевале
         new_pereval = PerevalAdded(
-            date_added=pereval_data.date_added,
-            raw_data=pereval_data.raw_data,
-            images=pereval_data.images,
-            status="new"  # Устанавливаем статус new
+            user_id=user.id,
+            beauty_title=pereval_data.beauty_title,
+            title=pereval_data.title,
+            other_titles=pereval_data.other_titles,
+            connect=pereval_data.connect,
+            add_time=pereval_data.add_time,
+            coord_id=coords.id,
+            level_id=level.id,
+            status="new"
         )
         self.db.add(new_pereval)
         self.db.commit()
         self.db.refresh(new_pereval)
+
+
+        for image_data in pereval_data.images:
+            image = Image(
+                url=image_data.url,
+                title=image_data.title
+            )
+            self.db.add(image)
+            new_pereval.images.append(image)
+
+        self.db.commit()
         return new_pereval
