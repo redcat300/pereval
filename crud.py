@@ -21,7 +21,7 @@ class PerevalDB:
             self.db.commit()
             self.db.refresh(user)
 
-        # Создаем координаты
+
         coords = Coords(
             latitude=pereval_data.coords.latitude,
             longitude=pereval_data.coords.longitude,
@@ -31,7 +31,7 @@ class PerevalDB:
         self.db.commit()
         self.db.refresh(coords)
 
-        # Создаем уровень сложности
+
         level = Level(
             winter=pereval_data.level.winter,
             summer=pereval_data.level.summer,
@@ -42,7 +42,7 @@ class PerevalDB:
         self.db.commit()
         self.db.refresh(level)
 
-        # Создаем запись о перевале
+
         new_pereval = PerevalAdded(
             user_id=user.id,
             beauty_title=pereval_data.beauty_title,
