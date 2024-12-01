@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, Table
 from sqlalchemy.orm import relationship
-from database import Base
+from pereval.database import Base
 
 pereval_images = Table(
     'pereval_images', Base.metadata,

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from models import PerevalAdded, User, Coords, Level, Image
-from schemas import PerevalCreate
+from pereval.models import PerevalAdded, User, Coords, Level, Image
+from pereval.schemas import PerevalCreate
 
 
 class PerevalDB:
@@ -58,7 +58,7 @@ class PerevalDB:
         self.db.commit()
         self.db.refresh(new_pereval)
 
-
+        # Добавляем изображения
         for image_data in pereval_data.images:
             image = Image(
                 url=image_data.url,
@@ -69,3 +69,43 @@ class PerevalDB:
 
         self.db.commit()
         return new_pereval
+
+    def get_pereval_by_id(self, pereval_id: int):
+        return self.db.query(PerevalAdded).filter(PerevalAdded.id == pereval_id).first()
+
+    def update_pereval(self, pereval_id: int, updated_pereval: PerevalCreate):
+        pereval = self.db.query(PerevalAdded).filter(PerevalAdded.id == pereval_id).first()
+
+        if not pereval or pereval.status != "new":
+            return None  # Запись не найдена или не в статусе 'new', не обновляем
+
+        # Обновляем разрешенные поля
+        if updated_pereval.title:
+            pereval.title = updated_pereval.title
+        if updated_pereval.other_titles:
+            pereval.other_titles = updated_pereval.other_titles
+        if updated_pereval.connect:
+            pereval.connect = updated_pereval.connect
+        if updated_pereval.add_time:
+            pereval.add_time = updated_pereval.add_time
+        if updated_pereval.coords:
+            coords = self.db.query(Coords).filter(Coords.id == pereval.coord_id).first()
+            coords.latitude = updated_pereval.coords.latitude
+            coords.longitude = updated_pereval.coords.longitude
+            coords.height = updated_pereval.coords.height
+        if updated_pereval.level:
+            level = self.db.query(Level).filter(Level.id == pereval.level_id).first()
+            level.winter = updated_pereval.level.winter
+            level.summer = updated_pereval.level.summer
+            level.autumn = updated_pereval.level.autumn
+            level.spring = updated_pereval.level.spring
+
+        self.db.commit()
+        self.db.refresh(pereval)
+        return pereval
+
+    def get_perevals_by_user_email(self, email: str):
+        user = self.db.query(User).filter(User.email == email).first()
+        if not user:
+            return None  # Пользователь с таким email не найден
+        return self.db.query(PerevalAdded).filter(PerevalAdded.user_id == user.id).all()
